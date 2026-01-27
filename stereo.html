@@ -75,7 +75,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 10, 20000);
-    camera.position.set(2000, 2000, 2000);
+    camera.position.set(2000, 2000, 4000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
@@ -296,4 +296,5 @@
     (function anim(){ requestAnimationFrame(anim); controls.update(); renderer.render(scene, camera); })();
 </script>
 </body>
+
 </html>
