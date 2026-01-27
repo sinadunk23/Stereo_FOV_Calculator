@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Camera Visualizers</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #57606a;
+      --active: #0969da;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .tab[aria-selected="true"] {
+      border-color: rgba(9, 105, 218, 0.35);
+      color: var(--active);
+      box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.12);
+    }
+
+    .hint {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .content {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+
+    iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    iframe[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="title">Camera Visualizers</div>
+      <div class="tabs" role="tablist" aria-label="Tools">
+        <button class="tab" id="tab-single" role="tab" aria-selected="true" aria-controls="view-single">Single Camera</button>
+        <button class="tab" id="tab-stereo" role="tab" aria-selected="false" aria-controls="view-stereo">Stereo</button>
+      </div>
+      <div class="hint">Tip: use `#single` / `#stereo` in the URL</div>
+    </div>
+
+    <div class="content">
+      <iframe id="view-single" title="Single Camera" src="single_cam.html"></iframe>
+      <iframe id="view-stereo" title="Stereo" src="stereo.html" hidden></iframe>
+    </div>
+  </div>
+
+  <script>
+    const tabs = {
+      single: document.getElementById('tab-single'),
+      stereo: document.getElementById('tab-stereo'),
+    };
+    const views = {
+      single: document.getElementById('view-single'),
+      stereo: document.getElementById('view-stereo'),
+    };
+
+    function setActive(which) {
+      const isSingle = which === 'single';
+      tabs.single.setAttribute('aria-selected', String(isSingle));
+      tabs.stereo.setAttribute('aria-selected', String(!isSingle));
+      views.single.hidden = !isSingle;
+      views.stereo.hidden = isSingle;
+      location.hash = `#${which}`;
+    }
+
+    tabs.single.addEventListener('click', () => setActive('single'));
+    tabs.stereo.addEventListener('click', () => setActive('stereo'));
+
+    // Initialize from URL hash
+    const hash = (location.hash || '').replace('#', '').toLowerCase();
+    if (hash === 'stereo') setActive('stereo');
+    else setActive('single');
+  </script>
+</body>
+</html>
+
