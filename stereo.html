@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stereo Overlap Visualizer</title>
+    <style>
+        body { margin: 0; font-family: -apple-system, sans-serif; display: flex; height: 100vh; background: #f0f0f0; }
+        #ui-panel { width: 320px; padding: 25px; background: #fff; border-right: 1px solid #ccc; overflow-y: auto; }
+        #viz-container { flex-grow: 1; background: #e0e0e0; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+        input { width: 100%; }
+        .stats { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-top: 20px; }
+        .stat-line { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
+        .stat-line:last-child { margin-bottom: 0; }
+        input[type="number"] { padding: 5px; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px; }
+        input[type="range"] { margin-bottom: 5px; }
+        h1 { font-size: 18px; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+<div id="ui-panel">
+    <h1>Stereo Overlap</h1>
+    <div class="control-group">
+        <label>Working Distance (mm)</label>
+        <input type="range" id="height" min="100" max="5000" value="1500">
+        <input type="number" id="height-num" value="1500">
+    </div>
+    <div class="control-group">
+        <label>Baseline (mm)</label>
+        <input type="range" id="baseline" min="50" max="1000" value="300">
+        <input type="number" id="baseline-num" value="300">
+    </div>
+    <div class="control-group">
+        <label>Convergence (Deg)</label>
+        <input type="range" id="conv" min="0" max="30" value="5" step="0.5">
+        <input type="number" id="conv-num" value="5" step="0.5">
+    </div>
+    <div class="control-group">
+        <label>Focal Length (mm)</label>
+        <input type="range" id="focal" min="2.8" max="50" value="8" step="0.1">
+        <input type="number" id="focal-num" value="8" step="0.1">
+    </div>
+    <div class="control-group">
+        <label>Sensor Width (mm)</label>
+        <input type="range" id="sensor" min="3" max="36" value="6.4" step="0.1">
+        <input type="number" id="sensor-num" value="6.4" step="0.1">
+    </div>
+    <div class="control-group">
+        <label>Sensor Height (mm)</label>
+        <input type="range" id="sensor-h" min="2" max="24" value="4.8" step="0.1">
+        <input type="number" id="sensor-h-num" value="4.8" step="0.1">
+    </div>
+    <div class="stats">
+        <div class="stat-line" style="border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;">
+            <span style="color:#666;">H-FOV / V-FOV:</span> 
+            <span id="calc-fov" style="font-weight:bold; color:#6c757d;">0° / 0°</span>
+        </div>
+        <div style="font-size: 10px; color:#666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase;">Physical Dimensions</div>
+        <div class="stat-line"><span>Overlap Width:</span> <span id="res-w" style="font-weight:bold; color:#007bff;">0 mm</span></div>
+        <div class="stat-line"><span>Overlap Height:</span> <span id="res-h" style="font-weight:bold; color:#007bff;">0 mm</span></div>
+        <div style="font-size: 10px; color:#666; font-weight: bold; margin: 12px 0 8px 0; text-transform: uppercase;">Image Space</div>
+        <div class="stat-line"><span>Image Width:</span> <span id="img-w" style="font-weight:bold; color:#007bff;">0 px</span></div>
+        <div class="stat-line"><span>Image Height:</span> <span id="img-h" style="font-weight:bold; color:#007bff;">0 px</span></div>
+    </div>
+</div>
+<div id="viz-container"></div>
+
+<script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } } </script>
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+    const container = document.getElementById('viz-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf0f0f0);
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 10, 20000);
+    camera.position.set(2000, 2000, 2000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    scene.add(new THREE.GridHelper(5000, 20));
+
+    const camL = new THREE.Group(); const camR = new THREE.Group();
+    camL.add(new THREE.Mesh(new THREE.BoxGeometry(60,40,80), new THREE.MeshBasicMaterial({color: 0xff4d4d})));
+    camR.add(new THREE.Mesh(new THREE.BoxGeometry(60,40,80), new THREE.MeshBasicMaterial({color: 0x4d94ff})));
+    scene.add(camL, camR);
+    const raysL = new THREE.Group(); const raysR = new THREE.Group();
+    const overlapGroup = new THREE.Group();
+    scene.add(raysL, raysR, overlapGroup);
+
+    let groundL = [], groundR = [];
+
+    function update() {
+        const h = parseFloat(document.getElementById('height').value);
+        const b = parseFloat(document.getElementById('baseline').value);
+        const conv = THREE.MathUtils.degToRad(parseFloat(document.getElementById('conv').value));
+        const focal = parseFloat(document.getElementById('focal').value);
+        const sensorW = parseFloat(document.getElementById('sensor').value);
+        const sensorH = parseFloat(document.getElementById('sensor-h').value);
+        
+        // Calculate FOV from focal length and sensor size
+        const hfov = 2 * Math.atan(sensorW / (2 * focal));
+        const vfov = 2 * Math.atan(sensorH / (2 * focal));
+        
+        camL.position.set(-b/2, h, 0); camR.position.set(b/2, h, 0);
+        camL.rotation.set(-Math.PI/2, -conv, 0); camR.rotation.set(-Math.PI/2, conv, 0);
+
+        groundL = renderRays(camL, hfov, vfov, 0xff4d4d, raysL);
+        groundR = renderRays(camR, hfov, vfov, 0x4d94ff, raysR);
+        
+        calculateOverlap(h, focal, sensorW, sensorH, hfov, vfov);
+    }
+
+    function renderRays(cam, hfov, vfov, color, group) {
+        group.clear();
+        const tH = Math.tan(hfov/2); const tV = Math.tan(vfov/2);
+        const pts = [new THREE.Vector3(-tH,tV,-1), new THREE.Vector3(tH,tV,-1), new THREE.Vector3(tH,-tV,-1), new THREE.Vector3(-tH,-tV,-1)];
+        const ground = [];
+        pts.forEach(p => {
+            p.applyQuaternion(cam.quaternion).normalize();
+            const t = -cam.position.y / p.y;
+            const hit = new THREE.Vector3().copy(cam.position).add(p.multiplyScalar(t));
+            ground.push(hit);
+            group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([cam.position, hit]), new THREE.LineBasicMaterial({color, opacity:0.3, transparent:true})));
+        });
+        const geo = new THREE.BufferGeometry().setFromPoints([ground[0], ground[1], ground[2], ground[0], ground[2], ground[3]]);
+        group.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color, opacity:0.1, transparent:true, side:THREE.DoubleSide})));
+        return ground;
+    }
+
+    function calculateOverlap(workingDist, focal, sensorW, sensorH, hfov, vfov) {
+        overlapGroup.clear();
+        
+        // Update calculated FOV display
+        const hfovDeg = THREE.MathUtils.radToDeg(hfov);
+        const vfovDeg = THREE.MathUtils.radToDeg(vfov);
+        document.getElementById('calc-fov').textContent = hfovDeg.toFixed(1) + '° / ' + vfovDeg.toFixed(1) + '°';
+        
+        // Convert to 2D polygons (x, z coordinates)
+        const polyL = groundL.map(v => ({x: v.x, y: v.z}));
+        const polyR = groundR.map(v => ({x: v.x, y: v.z}));
+        
+        // Calculate polygon intersection using Sutherland-Hodgman algorithm
+        const intersection = polygonIntersection(polyL, polyR);
+        
+        if (intersection.length > 2) {
+            // Calculate bounding box
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            intersection.forEach(p => {
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                minZ = Math.min(minZ, p.y); maxZ = Math.max(maxZ, p.y);
+            });
+            
+            const width = maxX - minX;
+            const depth = maxZ - minZ;
+            
+            // Calculate image space dimensions (in pixels, assuming common resolutions)
+            // Physical size of FOV at working distance
+            const fovWidthAtDist = 2 * workingDist * Math.tan(hfov / 2);
+            const fovHeightAtDist = 2 * workingDist * Math.tan(vfov / 2);
+            
+            // Calculate pixels per mm at working distance (assuming 1920x1080 sensor resolution example)
+            const assumedResW = 1920;
+            const assumedResH = 1080;
+            const pixelsPerMmW = assumedResW / fovWidthAtDist;
+            const pixelsPerMmH = assumedResH / fovHeightAtDist;
+            
+            // Calculate overlap in pixels
+            const overlapPixelsW = Math.round(width * pixelsPerMmW);
+            const overlapPixelsH = Math.round(depth * pixelsPerMmH);
+            
+            // Update UI - Physical
+            document.getElementById('res-w').textContent = Math.round(width) + ' mm';
+            document.getElementById('res-h').textContent = Math.round(depth) + ' mm';
+            
+            // Update UI - Image space
+            document.getElementById('img-w').textContent = overlapPixelsW + ' px';
+            document.getElementById('img-h').textContent = overlapPixelsH + ' px';
+            
+            // Visualize overlap region
+            const pts3D = intersection.map(p => new THREE.Vector3(p.x, 0.5, p.y));
+            if (pts3D.length >= 3) {
+                const shape = new THREE.Shape();
+                shape.moveTo(pts3D[0].x, pts3D[0].z);
+                for (let i = 1; i < pts3D.length; i++) shape.lineTo(pts3D[i].x, pts3D[i].z);
+                shape.lineTo(pts3D[0].x, pts3D[0].z);
+                
+                const geometry = new THREE.ShapeGeometry(shape);
+                const material = new THREE.MeshBasicMaterial({color: 0x00ff00, opacity: 0.3, transparent: true, side: THREE.DoubleSide});
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.rotation.x = -Math.PI / 2;
+                overlapGroup.add(mesh);
+                
+                // Add outline
+                const outlinePts = [...pts3D, pts3D[0]];
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(outlinePts);
+                overlapGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({color: 0x00aa00, linewidth: 2})));
+                
+                // Add dimension labels in 3D
+                addDimensionLabel(Math.round(width) + ' mm', (minX + maxX) / 2, 1, maxZ + 50, 0x007bff);
+                addDimensionLabel(Math.round(depth) + ' mm', maxX + 50, 1, (minZ + maxZ) / 2, 0x007bff);
+            }
+        } else {
+            document.getElementById('res-w').textContent = '0 mm';
+            document.getElementById('res-h').textContent = '0 mm';
+            document.getElementById('img-w').textContent = '0 px';
+            document.getElementById('img-h').textContent = '0 px';
+        }
+    }
+    
+    function addDimensionLabel(text, x, y, z, color) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 1024;
+        canvas.height = 256;
+        
+        context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = 'Bold 96px Arial';
+        context.fillStyle = '#' + color.toString(16).padStart(6, '0');
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(text, canvas.width / 2, canvas.height / 2);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.position.set(x, y, z);
+        sprite.scale.set(400, 100, 1);
+        overlapGroup.add(sprite);
+    }
+
+    // Sutherland-Hodgman polygon clipping algorithm
+    function polygonIntersection(subject, clip) {
+        let output = [...subject];
+        
+        for (let i = 0; i < clip.length; i++) {
+            if (output.length === 0) break;
+            const input = output;
+            output = [];
+            
+            const edge1 = clip[i];
+            const edge2 = clip[(i + 1) % clip.length];
+            
+            for (let j = 0; j < input.length; j++) {
+                const current = input[j];
+                const next = input[(j + 1) % input.length];
+                
+                const currentInside = isInside(current, edge1, edge2);
+                const nextInside = isInside(next, edge1, edge2);
+                
+                if (currentInside && nextInside) {
+                    output.push(next);
+                } else if (currentInside && !nextInside) {
+                    const intersection = lineIntersection(current, next, edge1, edge2);
+                    if (intersection) output.push(intersection);
+                } else if (!currentInside && nextInside) {
+                    const intersection = lineIntersection(current, next, edge1, edge2);
+                    if (intersection) output.push(intersection);
+                    output.push(next);
+                }
+            }
+        }
+        
+        return output;
+    }
+
+    function isInside(point, edge1, edge2) {
+        return (edge2.x - edge1.x) * (point.y - edge1.y) > (edge2.y - edge1.y) * (point.x - edge1.x);
+    }
+
+    function lineIntersection(p1, p2, p3, p4) {
+        const denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+        if (Math.abs(denom) < 1e-10) return null;
+        
+        const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denom;
+        return {x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y)};
+    }
+
+    document.querySelectorAll('input').forEach(el => el.oninput = (e) => {
+        if(e.target.type === 'range') document.getElementById(e.target.id + '-num').value = e.target.value;
+        else document.getElementById(e.target.id.replace('-num','')).value = e.target.value;
+        update();
+    });
+    
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+    
+    update(); 
+    (function anim(){ requestAnimationFrame(anim); controls.update(); renderer.render(scene, camera); })();
+</script>
+</body>
+</html>

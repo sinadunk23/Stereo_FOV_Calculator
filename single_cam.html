@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Resolution & Object Visualizer</title>
+    <style>
+        body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; background: #f4f4f4; }
+        #ui-panel { width: 340px; padding: 20px; background: #fff; border-right: 1px solid #ccc; overflow-y: auto; }
+        #viz-container { flex-grow: 1; position: relative; }
+        .control-group { margin-bottom: 12px; }
+        label { display: block; font-size: 10px; font-weight: bold; color: #555; margin-bottom: 4px; }
+        input { width: 100%; box-sizing: border-box; }
+        input[type="range"] { margin-top: 6px; }
+        .stats { background: #eef7ff; padding: 15px; border-radius: 5px; border: 1px solid #b3d7ff; margin-top: 15px; }
+        .res-val { font-size: 18px; font-weight: bold; color: #007bff; }
+        .subval { font-size: 12px; color: #2b4a66; margin-top: 6px; }
+    </style>
+</head>
+<body>
+<div id="ui-panel">
+    <h3>Camera & Object Calc</h3>
+    
+    <div class="control-group">
+        <label>Working Distance (mm)</label>
+        <input type="number" id="wd" value="1000" min="50" max="5000" step="1">
+        <input type="range" id="wd-r" value="1000" min="50" max="5000" step="1">
+    </div>
+    
+    <div class="control-group">
+        <label>Focal Length (mm)</label>
+        <input type="number" id="focal" value="12" min="1" max="100" step="0.1">
+        <input type="range" id="focal-r" value="12" min="1" max="100" step="0.1">
+    </div>
+
+    <div class="control-group">
+        <label>Sensor Width (mm)</label>
+        <input type="number" id="sw" value="7.07" min="1" max="50" step="0.01">
+        <input type="range" id="sw-r" value="7.07" min="1" max="50" step="0.01">
+    </div>
+
+    <div class="control-group">
+        <label>Sensor Height (mm)</label>
+        <input type="number" id="sh" value="5.30" min="1" max="50" step="0.01">
+        <input type="range" id="sh-r" value="5.30" min="1" max="50" step="0.01">
+    </div>
+
+    <div class="control-group">
+        <label>Horizontal Pixels</label>
+        <input type="number" id="px-h" value="2048" min="64" max="12000" step="1">
+        <input type="range" id="px-h-r" value="2048" min="64" max="12000" step="1">
+    </div>
+
+    <div class="control-group">
+        <label>Vertical Pixels</label>
+        <input type="number" id="px-v" value="1536" min="64" max="12000" step="1">
+        <input type="range" id="px-v-r" value="1536" min="64" max="12000" step="1">
+    </div>
+
+    <hr>
+    <h4 style="margin: 10px 0 8px 0;">3D Box in Field</h4>
+    <div class="control-group">
+        <label>Box Width X (mm)</label>
+        <input type="number" id="box-w" value="200" min="1" max="5000" step="1">
+        <input type="range" id="box-w-r" value="200" min="1" max="5000" step="1">
+    </div>
+
+    <div class="control-group">
+        <label>Box Depth Z (mm)</label>
+        <input type="number" id="box-d" value="200" min="1" max="5000" step="1">
+        <input type="range" id="box-d-r" value="200" min="1" max="5000" step="1">
+    </div>
+
+    <div class="control-group">
+        <label>Box Height Y (mm)</label>
+        <input type="number" id="box-h" value="200" min="0" max="5000" step="1">
+        <input type="range" id="box-h-r" value="200" min="0" max="5000" step="1">
+    </div>
+
+    <div class="stats">
+        <div>Resolution (H): <span class="res-val" id="res-pxmm-h">0</span> px/mm</div>
+        <div class="subval">Resolution (V): <span style="font-weight:bold;" id="res-pxmm-v">0</span> px/mm</div>
+        <div class="subval">FOV @ WD: <span style="font-weight:bold;" id="fov-mm">0 × 0</span> mm</div>
+        <div class="subval">Angular FOV: <span style="font-weight:bold;" id="fov-deg">0° × 0°</span></div>
+        <div class="subval">Min Detectable (3px): <span id="min-feat" style="font-weight:bold;">0</span> mm</div>
+        <div class="subval">Box Res (bottom, H×V): <span id="box-res-bot" style="font-weight:bold;">0 × 0</span> px/mm</div>
+        <div class="subval">Box Res (top, H×V): <span id="box-res-top" style="font-weight:bold;">0 × 0</span> px/mm</div>
+        <div class="subval">Box Fit (corners in FOV): <span id="box-fit" style="font-weight:bold;">0/8</span></div>
+    </div>
+</div>
+<div id="viz-container"></div>
+
+<script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } } </script>
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+    const container = document.getElementById('viz-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xf4f6f8);
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 1, 10000);
+    camera.position.set(0, 500, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+    new OrbitControls(camera, renderer.domElement);
+
+    const camGroup = new THREE.Group();
+    const camBody = new THREE.Mesh(new THREE.BoxGeometry(50,50,70), new THREE.MeshLambertMaterial({color: 0xcccccc}));
+    camGroup.add(camBody);
+    scene.add(camGroup);
+    
+    const frustum = new THREE.Mesh(
+        new THREE.BufferGeometry(),
+        new THREE.MeshBasicMaterial({color: 0x007bff, transparent:true, opacity:0.12, side:THREE.DoubleSide})
+    );
+    scene.add(frustum);
+
+    const fovPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ color: 0x007bff, transparent: true, opacity: 0.10, side: THREE.DoubleSide })
+    );
+    fovPlane.rotation.x = -Math.PI / 2;
+    scene.add(fovPlane);
+
+    const fovOutline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)),
+        new THREE.LineBasicMaterial({ color: 0x1f6feb, linewidth: 1 })
+    );
+    fovOutline.rotation.x = -Math.PI / 2;
+    scene.add(fovOutline);
+
+    const fovPlaneTop = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ color: 0x8b5cf6, transparent: true, opacity: 0.08, side: THREE.DoubleSide })
+    );
+    fovPlaneTop.rotation.x = -Math.PI / 2;
+    scene.add(fovPlaneTop);
+
+    const fovOutlineTop = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)),
+        new THREE.LineBasicMaterial({ color: 0x8b5cf6, linewidth: 1 })
+    );
+    fovOutlineTop.rotation.x = -Math.PI / 2;
+    scene.add(fovOutlineTop);
+
+    const boxMaterial = new THREE.MeshLambertMaterial({ color: 0xd29922, transparent: true, opacity: 0.55 });
+    const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), boxMaterial);
+    scene.add(boxMesh);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1); light.position.set(10,20,10); scene.add(light, new THREE.AmbientLight(0xffffff, 0.5));
+    scene.add(new THREE.GridHelper(2000, 40, 0xaab4be, 0xd8dde3));
+    scene.add(new THREE.AxesHelper(250));
+
+    const lastGood = {
+        wd: 1000,
+        focal: 12,
+        sw: 7.07,
+        sh: 5.3,
+        pxh: 2048,
+        pxv: 1536,
+        boxW: 200,
+        boxD: 200,
+        boxH: 200,
+    };
+
+    function readFinite(id, key) {
+        const el = document.getElementById(id);
+        if (!el) return lastGood[key];
+        const v = parseFloat(el.value);
+        if (Number.isFinite(v)) lastGood[key] = v;
+        return lastGood[key];
+    }
+
+    function setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.innerText = text;
+    }
+
+    function bindNumberAndRange(id) {
+        const num = document.getElementById(id);
+        const range = document.getElementById(`${id}-r`);
+        if (!num || !range) return;
+
+        // initialize slider to match number input
+        range.value = num.value;
+
+        num.addEventListener('input', () => {
+            range.value = num.value;
+            update();
+        });
+
+        range.addEventListener('input', () => {
+            num.value = range.value;
+            update();
+        });
+    }
+
+    function update() {
+        const wd = readFinite('wd', 'wd');
+        const f = readFinite('focal', 'focal');
+        const sw = readFinite('sw', 'sw');
+        const sh = readFinite('sh', 'sh');
+        const pxh = readFinite('px-h', 'pxh');
+        const pxv = readFinite('px-v', 'pxv');
+        const boxW = readFinite('box-w', 'boxW');
+        const boxD = readFinite('box-d', 'boxD');
+        const boxH = readFinite('box-h', 'boxH');
+        const boxX = 0;
+        const boxZ = 0;
+
+        // Guard against transient invalid input states (e.g. typing, empty input)
+        if (![wd, f, sw, sh, pxh, pxv, boxW, boxD, boxH].every(Number.isFinite)) {
+            return;
+        }
+        if (wd <= 0 || f <= 0 || sw <= 0 || sh <= 0 || pxh <= 0 || pxv <= 0 || boxW <= 0 || boxD <= 0 || boxH < 0) {
+            return;
+        }
+
+        camGroup.position.set(0, wd, 0);
+        camGroup.rotation.x = -Math.PI/2;
+
+        const fovW = (sw * wd) / f;
+        const fovH = (sh * wd) / f;
+        const pxmmH = pxh / fovW;
+        const pxmmV = pxv / fovH;
+
+        const angFovH = 2 * Math.atan(sw / (2 * f));
+        const angFovV = 2 * Math.atan(sh / (2 * f));
+
+        // Visual Frustum
+        const pts = [new THREE.Vector3(-fovW/2, 0, -fovH/2), new THREE.Vector3(fovW/2, 0, -fovH/2), new THREE.Vector3(fovW/2, 0, fovH/2), new THREE.Vector3(-fovW/2, 0, fovH/2)];
+        frustum.geometry.setFromPoints([new THREE.Vector3(0,wd,0), pts[0], pts[1], new THREE.Vector3(0,wd,0), pts[1], pts[2], new THREE.Vector3(0,wd,0), pts[2], pts[3], new THREE.Vector3(0,wd,0), pts[3], pts[0]]);
+
+        // Working-distance imaging plane
+        // NOTE: PlaneGeometry is XY in local space; we rotate it onto XZ with rotation.x,
+        // so "height" must scale local Y (not Z).
+        fovPlane.scale.set(fovW, fovH, 1);
+        fovOutline.scale.set(fovW, fovH, 1);
+        fovPlane.position.set(0, 0, 0);
+        fovOutline.position.set(0, 0, 0);
+
+        // Box + top-plane FOV (at the box top height)
+        const boxTopY = Math.max(0, boxH);
+        const dTop = wd - boxTopY;
+        const topValid = dTop > 0;
+        const fovWTop = topValid ? (sw * dTop) / f : 0;
+        const fovHTop = topValid ? (sh * dTop) / f : 0;
+
+        fovPlaneTop.visible = topValid && boxTopY > 0;
+        fovOutlineTop.visible = topValid && boxTopY > 0;
+        if (fovPlaneTop.visible) {
+            fovPlaneTop.scale.set(fovWTop, fovHTop, 1);
+            fovPlaneTop.position.set(0, boxTopY, 0);
+
+            fovOutlineTop.scale.set(fovWTop, fovHTop, 1);
+            fovOutlineTop.position.set(0, boxTopY, 0);
+        }
+
+        boxMesh.scale.set(Math.max(1e-6, boxW), Math.max(1e-6, boxH), Math.max(1e-6, boxD));
+        boxMesh.position.set(0, boxH / 2, 0);
+
+        setText('res-pxmm-h', pxmmH.toFixed(2));
+        setText('res-pxmm-v', pxmmV.toFixed(2));
+        setText('fov-mm', `${fovW.toFixed(1)} × ${fovH.toFixed(1)}`);
+        setText('fov-deg', `${THREE.MathUtils.radToDeg(angFovH).toFixed(1)}° × ${THREE.MathUtils.radToDeg(angFovV).toFixed(1)}°`);
+        setText('min-feat', `${Math.max(3 / pxmmH, 3 / pxmmV).toFixed(3)} (worst axis)`);
+
+        // Effective resolution at bottom vs top of box (perspective)
+        const pxmmHBot = (pxh * f) / (sw * wd);
+        const pxmmVBot = (pxv * f) / (sh * wd);
+        const pxmmHTop = topValid ? (pxh * f) / (sw * dTop) : NaN;
+        const pxmmVTop = topValid ? (pxv * f) / (sh * dTop) : NaN;
+
+        setText('box-res-bot', `${pxmmHBot.toFixed(2)} × ${pxmmVBot.toFixed(2)}`);
+        setText('box-res-top', topValid
+            ? `${pxmmHTop.toFixed(2)} × ${pxmmVTop.toFixed(2)}`
+            : `n/a (top ≥ camera)`);
+
+        // Estimate "how much fits" by checking box corner points against the physical frustum
+        const hw = boxW / 2;
+        const hh = boxH / 2;
+        const hd = boxD / 2;
+        const corners = [
+            new THREE.Vector3(boxX - hw, boxH - 0, boxZ - hd),
+            new THREE.Vector3(boxX + hw, boxH - 0, boxZ - hd),
+            new THREE.Vector3(boxX + hw, boxH - 0, boxZ + hd),
+            new THREE.Vector3(boxX - hw, boxH - 0, boxZ + hd),
+            new THREE.Vector3(boxX - hw, 0, boxZ - hd),
+            new THREE.Vector3(boxX + hw, 0, boxZ - hd),
+            new THREE.Vector3(boxX + hw, 0, boxZ + hd),
+            new THREE.Vector3(boxX - hw, 0, boxZ + hd),
+        ];
+
+        function halfExtentsAtY(y) {
+            const d = wd - y;
+            if (d <= 0) return { halfW: -1, halfH: -1 };
+            return { halfW: (sw * d) / (2 * f), halfH: (sh * d) / (2 * f) };
+        }
+
+        let inside = 0;
+        for (const p of corners) {
+            if (p.y < 0 || p.y > wd) continue;
+            const { halfW, halfH } = halfExtentsAtY(p.y);
+            if (halfW <= 0 || halfH <= 0) continue;
+            if (Math.abs(p.x) <= halfW && Math.abs(p.z) <= halfH) inside++;
+        }
+
+        setText('box-fit', `${inside}/8`);
+        if (inside === 8) boxMaterial.color.setHex(0x2da44e);
+        else if (inside === 0) boxMaterial.color.setHex(0xcf222e);
+        else boxMaterial.color.setHex(0xd29922);
+    }
+
+    // Pair up all number inputs with their sliders
+    [
+        'wd','focal','sw','sh','px-h','px-v',
+        'box-w','box-d','box-h'
+    ].forEach(bindNumberAndRange);
+
+    update();
+    (function anim(){ requestAnimationFrame(anim); renderer.render(scene, camera); })();
+
+    window.addEventListener('resize', () => {
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+    });
+</script>
+</body>
+</html>
