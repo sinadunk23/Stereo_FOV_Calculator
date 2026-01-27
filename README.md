@@ -1,6 +1,6 @@
 # Camera Visualizer (GitHub Pages)
 
-This repo is meant to be hosted on **GitHub Pages**. The site entrypoint is **`index.html`** (tabbed UI).
+This repo is meant to be hosted on **GitHub Pages**. access it [here](https://sinadunk23.github.io/Stereo_FOV_Calculator/#single).
 
 ## What it does
 
