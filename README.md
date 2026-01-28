@@ -1,53 +1,108 @@
-# Camera Visualizer (GitHub Pages)
+### Camera Visualizers (GitHub Pages)
 
-This repo is meant to be hosted on **GitHub Pages**. access it [here](https://sinadunk23.github.io/Stereo_FOV_Calculator/#single).
+This repo includes **three standalone HTML tools** intended to be hosted on **GitHub Pages** (or run locally). They’re all client-side and load `three.js` from a CDN.
 
-## What it does
+- **`index.html`**: launcher page with tabs (Single / Stereo)
+- **`single_cam.html`**: single-camera calculator + 3D scene (FOV, resolution, depth-of-field, focus checks)
+- **`stereo.html`**: stereo overlap visualizer + 3D scene (FOV, overlap region, image-space overlap)
 
-`index.html` contains two tabs:
+---
 
-- **Single Camera**: Visualizes a pinhole camera’s field-of-view (FOV) and shows how a centered 3D box fits within the FOV at different heights.
-- **Stereo**: Visualizes two cameras and computes the overlap region on the ground plane, reporting overlap **width** and **height** (bounding box).
+### How to use (GitHub Pages)
 
-## Core math (pinhole model)
+- Enable GitHub Pages for the repository (Settings → Pages) and point it at the branch/folder containing these files.
+- Open the Pages URL. Start at `index.html` (it embeds the other two tools in iframes).
 
-### Angular FOV (from sensor size + focal length)
+**Deep links**
+- `index.html#single` opens the Single Camera tab
+- `index.html#stereo` opens the Stereo tab
 
-Horizontal and vertical angular FOV:
+---
 
-$$
-\mathrm{HFOV} = 2\arctan\left(\frac{s_w}{2f}\right), \quad
-\mathrm{VFOV} = 2\arctan\left(\frac{s_h}{2f}\right)
-$$
+### How to use (local)
 
-where:
-- $f$ = focal length (mm)
-- $s_w, s_h$ = sensor width/height (mm)
+Because these tools use ES modules and clipboard APIs, a local web server is strongly recommended (instead of opening the files via `file://`).
 
-### FOV size at distance (working distance)
+Example (Python):
 
-At a working distance $d$:
+```bash
+python -m http.server 8000
+```
 
-$$
-\mathrm{FOV}_w(d) = \frac{s_w \cdot d}{f}, \quad
-\mathrm{FOV}_h(d) = \frac{s_h \cdot d}{f}
-$$
+Then open:
+- `http://localhost:8000/index.html`
 
-### Effective resolution (px/mm) vs distance
+---
 
-Given pixel resolution \(p_w, p_h\):
+### `index.html` (Launcher)
 
-$$
-\mathrm{px/mm}_w(d) = \frac{p_w}{\mathrm{FOV}_w(d)} = \frac{p_w f}{s_w d}, \quad
-\mathrm{px/mm}_h(d) = \frac{p_h}{\mathrm{FOV}_h(d)} = \frac{p_h f}{s_h d}
-$$
+- **Tabbed UI** that swaps between:
+  - `single_cam.html`
+  - `stereo.html`
+- Uses iframes so each tool stays self-contained.
 
-The **Single Camera** tab applies this at:
-- **bottom of box**: $d = \mathrm{WD}$
-- **top of box**: $d = \mathrm{WD} - y_{\text{top}}$
+---
 
-## Stereo overlap (ground plane)
+### `single_cam.html` (Single Camera + DOF)
 
-Each camera’s frustum is projected to the ground plane as a quadrilateral. The overlap polygon is computed via **polygon clipping** (Sutherland–Hodgman). The UI reports:
-- **Overlap width** = $ \max(x) - \min(x) $
-- **Overlap height** = $ \max(z) - \min(z) $
+**Inputs**
+- Working distance, focal length, sensor size, pixel resolution
+- 3D box size (width/depth/height)
+- Depth-of-field controls:
+  - f/#
+  - Focus distance (or “lock to working distance”)
+  - CoC modes:
+    - **Auto (industrial)**: sensor diagonal / 1500
+    - **2-pixel rule**: CoC = 2 × pixel pitch
+    - Manual CoC (µm)
+
+**Outputs (grouped “Results” panel)**
+- FOV (physical and angular)
+- Resolution in **mm/px** + min detectable feature (3 px)
+- DOF: near/far, working range, hyperfocal, CoC used
+- Box: fit-in-FOV, effective resolution at top/bottom, box distance span, in-focus YES/NO
+
+**Render visualization**
+- Camera frustum + WD plane
+- Box in scene
+- Focus plane
+- DOF “in-focus” volume segment
+- **View Panel** quick views (Top/Bottom/Left/Right/Front/Back/Iso)
+
+**Buttons**
+- **Copy Results**: copies the entire results section as a clean text block
+- **Screenshot** (in View Panel): copies a PNG of the current render to clipboard (with fallback to download if clipboard image write isn’t allowed)
+
+---
+
+### `stereo.html` (Stereo Overlap)
+
+**Inputs**
+- Working distance, baseline, convergence
+- Focal length, sensor width/height
+
+**Outputs (same grouped “Results” style)**
+- H-FOV / V-FOV
+- Physical overlap width/height at the working plane
+- Image-space overlap width/height (px; currently uses an assumed sensor resolution inside the script)
+
+**Render visualization**
+- Two camera bodies + rays to ground plane
+- Overlap polygon rendered on the ground plane
+- **View Panel** quick views (Top/Bottom/Left/Right/Front/Back/Iso)
+
+**Buttons**
+- **Copy Results**
+- **Screenshot** (copies PNG to clipboard; falls back to download if required)
+
+---
+
+### Notes / Troubleshooting
+
+- **Clipboard screenshot requires a secure context**:
+  - Works on `https://` and usually on `http://localhost`
+  - Often does **not** work on `file://` (browser will block clipboard image writes)
+  - When blocked, the Screenshot button falls back to downloading a PNG.
+- **“Copy Results”** should work broadly; it has a fallback for non-secure contexts.
+- The tools load `three.js` from a CDN; offline use requires vendoring those dependencies.
+
