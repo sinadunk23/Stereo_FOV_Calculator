@@ -77,13 +77,13 @@
     </div>
 
     <div class="stats">
-        <div>Resolution (H): <span class="res-val" id="res-pxmm-h">0</span> px/mm</div>
-        <div class="subval">Resolution (V): <span style="font-weight:bold;" id="res-pxmm-v">0</span> px/mm</div>
+        <div>Resolution (H): <span class="res-val" id="res-pxmm-h">0</span> mm/px</div>
+        <div class="subval">Resolution (V): <span style="font-weight:bold;" id="res-pxmm-v">0</span> mm/px</div>
         <div class="subval">FOV @ WD: <span style="font-weight:bold;" id="fov-mm">0 × 0</span> mm</div>
         <div class="subval">Angular FOV: <span style="font-weight:bold;" id="fov-deg">0° × 0°</span></div>
         <div class="subval">Min Detectable (3px): <span id="min-feat" style="font-weight:bold;">0</span> mm</div>
-        <div class="subval">Box Res (bottom, H×V): <span id="box-res-bot" style="font-weight:bold;">0 × 0</span> px/mm</div>
-        <div class="subval">Box Res (top, H×V): <span id="box-res-top" style="font-weight:bold;">0 × 0</span> px/mm</div>
+        <div class="subval">Box Res (bottom, H×V): <span id="box-res-bot" style="font-weight:bold;">0 × 0</span> mm/px</div>
+        <div class="subval">Box Res (top, H×V): <span id="box-res-top" style="font-weight:bold;">0 × 0</span> mm/px</div>
         <div class="subval">Box Fit (corners in FOV): <span id="box-fit" style="font-weight:bold;">0/8</span></div>
     </div>
 </div>
@@ -221,8 +221,9 @@
 
         const fovW = (sw * wd) / f;
         const fovH = (sh * wd) / f;
-        const pxmmH = pxh / fovW;
-        const pxmmV = pxv / fovH;
+        // Resolution in mm/px (invert from px/mm)
+        const mmppH = fovW / pxh;
+        const mmppV = fovH / pxv;
 
         const angFovH = 2 * Math.atan(sw / (2 * f));
         const angFovV = 2 * Math.atan(sh / (2 * f));
@@ -259,21 +260,21 @@
         boxMesh.scale.set(Math.max(1e-6, boxW), Math.max(1e-6, boxH), Math.max(1e-6, boxD));
         boxMesh.position.set(0, boxH / 2, 0);
 
-        setText('res-pxmm-h', pxmmH.toFixed(2));
-        setText('res-pxmm-v', pxmmV.toFixed(2));
+        setText('res-pxmm-h', mmppH.toFixed(4));
+        setText('res-pxmm-v', mmppV.toFixed(4));
         setText('fov-mm', `${fovW.toFixed(1)} × ${fovH.toFixed(1)}`);
         setText('fov-deg', `${THREE.MathUtils.radToDeg(angFovH).toFixed(1)}° × ${THREE.MathUtils.radToDeg(angFovV).toFixed(1)}°`);
-        setText('min-feat', `${Math.max(3 / pxmmH, 3 / pxmmV).toFixed(3)} (worst axis)`);
+        setText('min-feat', `${Math.max(3 * mmppH, 3 * mmppV).toFixed(3)} (worst axis)`);
 
         // Effective resolution at bottom vs top of box (perspective)
-        const pxmmHBot = (pxh * f) / (sw * wd);
-        const pxmmVBot = (pxv * f) / (sh * wd);
-        const pxmmHTop = topValid ? (pxh * f) / (sw * dTop) : NaN;
-        const pxmmVTop = topValid ? (pxv * f) / (sh * dTop) : NaN;
+        const mmppHBot = (sw * wd) / (pxh * f);
+        const mmppVBot = (sh * wd) / (pxv * f);
+        const mmppHTop = topValid ? (sw * dTop) / (pxh * f) : NaN;
+        const mmppVTop = topValid ? (sh * dTop) / (pxv * f) : NaN;
 
-        setText('box-res-bot', `${pxmmHBot.toFixed(2)} × ${pxmmVBot.toFixed(2)}`);
+        setText('box-res-bot', `${mmppHBot.toFixed(4)} × ${mmppVBot.toFixed(4)}`);
         setText('box-res-top', topValid
-            ? `${pxmmHTop.toFixed(2)} × ${pxmmVTop.toFixed(2)}`
+            ? `${mmppHTop.toFixed(4)} × ${mmppVTop.toFixed(4)}`
             : `n/a (top ≥ camera)`);
 
         // Estimate "how much fits" by checking box corner points against the physical frustum
