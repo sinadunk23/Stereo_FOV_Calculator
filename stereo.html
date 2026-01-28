@@ -6,16 +6,81 @@
     <style>
         body { margin: 0; font-family: -apple-system, sans-serif; display: flex; height: 100vh; background: #f0f0f0; }
         #ui-panel { width: 320px; padding: 25px; background: #fff; border-right: 1px solid #ccc; overflow-y: auto; }
-        #viz-container { flex-grow: 1; background: #e0e0e0; }
+        #viz-container { flex-grow: 1; background: #e0e0e0; position: relative; }
         .control-group { margin-bottom: 15px; }
         label { display: block; font-size: 11px; color: #666; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
         input { width: 100%; }
-        .stats { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-top: 20px; }
-        .stat-line { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px; }
-        .stat-line:last-child { margin-bottom: 0; }
+        .stats { background: #eef7ff; padding: 14px; border-radius: 8px; border: 1px solid #b3d7ff; margin-top: 15px; }
+        .stats-header { display:flex; align-items:center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+        .stats-header-title { font-size: 12px; font-weight: 900; color: #0b2b44; letter-spacing: 0.2px; text-transform: uppercase; }
+        .copy-btn {
+            border: 1px solid rgba(180,190,200,0.9);
+            background: rgba(255,255,255,0.95);
+            color: #0b2b44;
+            font-weight: 900;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .copy-btn:hover { background: rgba(240,248,255,0.95); }
+        .copy-btn:active { transform: translateY(1px); }
+        .stats-grid { display: grid; gap: 10px; }
+        .stats-section { background: rgba(255,255,255,0.55); border: 1px solid rgba(179,215,255,0.8); border-radius: 8px; padding: 10px; }
+        .stats-title { font-size: 11px; font-weight: 800; color: #0b3d66; letter-spacing: 0.2px; margin-bottom: 8px; text-transform: uppercase; }
+        .stat-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 4px 0; }
+        .stat-label { font-size: 12px; color: #2b4a66; }
+        .stat-value { font-size: 12px; color: #0b2b44; font-weight: 800; text-align: right; }
+        .stat-value.primary { font-size: 14px; }
+        .stat-unit { font-size: 11px; color: #2b4a66; margin-left: 6px; font-weight: 600; }
+        .stat-right { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; }
         input[type="number"] { padding: 5px; border: 1px solid #ccc; border-radius: 4px; margin-top: 5px; }
         input[type="range"] { margin-bottom: 5px; }
         h1 { font-size: 18px; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+
+        #view-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: grid;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.78);
+            border: 1px solid rgba(180,190,200,0.65);
+            backdrop-filter: blur(6px);
+            z-index: 5;
+            user-select: none;
+        }
+        #view-panel-title {
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            color: #0b2b44;
+            padding: 2px 4px 0 4px;
+            text-transform: uppercase;
+        }
+        #view-panel-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .view-btn {
+            border: 1px solid rgba(180,190,200,0.9);
+            background: rgba(255,255,255,0.9);
+            color: #0b2b44;
+            font-weight: 800;
+            font-size: 12px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .view-btn.secondary {
+            font-weight: 900;
+            background: rgba(240,248,255,0.95);
+        }
+        .view-btn:hover { background: rgba(240,248,255,0.95); }
+        .view-btn:active { transform: translateY(1px); }
     </style>
 </head>
 <body>
@@ -52,19 +117,60 @@
         <input type="number" id="sensor-h-num" value="4.8" step="0.1">
     </div>
     <div class="stats">
-        <div class="stat-line" style="border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;">
-            <span style="color:#666;">H-FOV / V-FOV:</span> 
-            <span id="calc-fov" style="font-weight:bold; color:#6c757d;">0° / 0°</span>
+        <div class="stats-header">
+            <div class="stats-header-title">Results</div>
+            <button class="copy-btn" id="copy-results" type="button" title="Copy all results to clipboard">Copy Results</button>
         </div>
-        <div style="font-size: 10px; color:#666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase;">Physical Dimensions</div>
-        <div class="stat-line"><span>Overlap Width:</span> <span id="res-w" style="font-weight:bold; color:#007bff;">0 mm</span></div>
-        <div class="stat-line"><span>Overlap Height:</span> <span id="res-h" style="font-weight:bold; color:#007bff;">0 mm</span></div>
-        <div style="font-size: 10px; color:#666; font-weight: bold; margin: 12px 0 8px 0; text-transform: uppercase;">Image Space</div>
-        <div class="stat-line"><span>Image Width:</span> <span id="img-w" style="font-weight:bold; color:#007bff;">0 px</span></div>
-        <div class="stat-line"><span>Image Height:</span> <span id="img-h" style="font-weight:bold; color:#007bff;">0 px</span></div>
+        <div class="stats-grid">
+            <div class="stats-section">
+                <div class="stats-title">Field of View</div>
+                <div class="stat-row">
+                    <div class="stat-label">H-FOV / V-FOV</div>
+                    <div class="stat-right"><span class="stat-value primary" id="calc-fov">0° / 0°</span></div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Physical Dimensions</div>
+                <div class="stat-row">
+                    <div class="stat-label">Overlap Width</div>
+                    <div class="stat-right"><span class="stat-value primary" id="res-w">0 mm</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Overlap Height</div>
+                    <div class="stat-right"><span class="stat-value" id="res-h">0 mm</span></div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Image Space</div>
+                <div class="stat-row">
+                    <div class="stat-label">Image Width</div>
+                    <div class="stat-right"><span class="stat-value primary" id="img-w">0 px</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Image Height</div>
+                    <div class="stat-right"><span class="stat-value" id="img-h">0 px</span></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
-<div id="viz-container"></div>
+<div id="viz-container">
+    <div id="view-panel">
+        <div id="view-panel-title">View Panel</div>
+        <div id="view-panel-buttons">
+            <button class="view-btn" id="view-top" title="Top view">Top</button>
+            <button class="view-btn" id="view-bottom" title="Bottom view">Bottom</button>
+            <button class="view-btn" id="view-left" title="Left view">Left</button>
+            <button class="view-btn" id="view-right" title="Right view">Right</button>
+            <button class="view-btn" id="view-front" title="Front view">Front</button>
+            <button class="view-btn" id="view-back" title="Back view">Back</button>
+            <button class="view-btn" id="view-iso" title="Isometric view">Iso</button>
+            <button class="view-btn secondary" id="take-screenshot" title="Copy PNG screenshot to clipboard">Screenshot</button>
+        </div>
+    </div>
+</div>
 
 <script type="importmap"> { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } } </script>
 <script type="module">
@@ -76,11 +182,186 @@
     scene.background = new THREE.Color(0xf0f0f0);
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 10, 20000);
     camera.position.set(2000, 2000, 4000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, 0);
+    controls.update();
     scene.add(new THREE.GridHelper(5000, 20));
+
+    const viewState = {
+        h: 1500,
+        b: 300,
+    };
+
+    function sceneScale() {
+        const span = Math.max(viewState.h, viewState.b, 500);
+        return span * 1.35;
+    }
+
+    function animateView(toPos, toTarget, ms = 250) {
+        const fromPos = camera.position.clone();
+        const fromTarget = controls.target.clone();
+        const t0 = performance.now();
+
+        (function step(now) {
+            const t = Math.min(1, (now - t0) / ms);
+            const e = 1 - Math.pow(1 - t, 3);
+            camera.position.lerpVectors(fromPos, toPos, e);
+            controls.target.lerpVectors(fromTarget, toTarget, e);
+            controls.update();
+            if (t < 1) requestAnimationFrame(step);
+        })(t0);
+    }
+
+    function setQuickView(kind) {
+        const d = sceneScale();
+        const target = new THREE.Vector3(0, 0, 0);
+        const eps = 0.001;
+
+        let pos;
+        if (kind === 'top') pos = new THREE.Vector3(0, d, eps);
+        else if (kind === 'bottom') pos = new THREE.Vector3(0, -d, eps);
+        else if (kind === 'left') pos = new THREE.Vector3(-d, d * 0.15, 0);
+        else if (kind === 'right') pos = new THREE.Vector3(d, d * 0.15, 0);
+        else if (kind === 'front') pos = new THREE.Vector3(0, d * 0.15, d);
+        else if (kind === 'back') pos = new THREE.Vector3(0, d * 0.15, -d);
+        else /* iso */ pos = new THREE.Vector3(d * 0.85, d * 0.65, d * 0.85);
+
+        animateView(pos, target, 260);
+    }
+
+    (function bindQuickViews() {
+        const map = [
+            ['view-top', 'top'],
+            ['view-bottom', 'bottom'],
+            ['view-left', 'left'],
+            ['view-right', 'right'],
+            ['view-front', 'front'],
+            ['view-back', 'back'],
+            ['view-iso', 'iso'],
+        ];
+        for (const [id, kind] of map) {
+            const b = document.getElementById(id);
+            if (!b) continue;
+            b.addEventListener('click', () => setQuickView(kind));
+        }
+    })();
+
+    async function copyToClipboard(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    }
+
+    function getText(id) {
+        const el = document.getElementById(id);
+        return el ? (el.innerText || el.textContent || '').trim() : '';
+    }
+
+    function buildResultsText() {
+        const lines = [];
+        const now = new Date();
+        lines.push(`Stereo Overlap — Results`);
+        lines.push(`Generated: ${now.toISOString()}`);
+        lines.push('');
+
+        lines.push(`Field of View`);
+        lines.push(`- H-FOV / V-FOV: ${getText('calc-fov')}`);
+        lines.push('');
+
+        lines.push(`Physical Dimensions`);
+        lines.push(`- Overlap Width: ${getText('res-w')}`);
+        lines.push(`- Overlap Height: ${getText('res-h')}`);
+        lines.push('');
+
+        lines.push(`Image Space`);
+        lines.push(`- Image Width: ${getText('img-w')}`);
+        lines.push(`- Image Height: ${getText('img-h')}`);
+
+        return lines.join('\n');
+    }
+
+    (function bindCopyResults() {
+        const btn = document.getElementById('copy-results');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            const text = buildResultsText();
+            try {
+                await copyToClipboard(text);
+                const prev = btn.innerText;
+                btn.innerText = 'Copied!';
+                setTimeout(() => { btn.innerText = prev; }, 900);
+            } catch (e) {
+                console.error('Copy failed', e);
+                const prev = btn.innerText;
+                btn.innerText = 'Copy failed';
+                setTimeout(() => { btn.innerText = prev; }, 1200);
+            }
+        });
+    })();
+
+    (function bindScreenshot() {
+        const btn = document.getElementById('take-screenshot');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            try {
+                renderer.render(scene, camera);
+                const prev = btn.innerText;
+                btn.innerText = 'Copying...';
+
+                const canvas = renderer.domElement;
+                canvas.toBlob(async (blob) => {
+                    try {
+                        if (!blob) throw new Error('Canvas toBlob() returned null');
+
+                        if (navigator.clipboard && window.ClipboardItem) {
+                            const item = new ClipboardItem({ 'image/png': blob });
+                            await navigator.clipboard.write([item]);
+                            btn.innerText = 'Copied';
+                            setTimeout(() => { btn.innerText = prev; }, 900);
+                            return;
+                        }
+
+                        // Fallback: download if clipboard image copy isn't available
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+                        a.href = url;
+                        a.download = `stereo_view_${ts}.png`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+
+                        btn.innerText = 'Saved';
+                        setTimeout(() => { btn.innerText = prev; }, 900);
+                    } catch (e) {
+                        console.error('Clipboard screenshot failed', e);
+                        btn.innerText = 'Failed';
+                        setTimeout(() => { btn.innerText = prev; }, 1200);
+                    }
+                }, 'image/png');
+            } catch (e) {
+                console.error('Screenshot failed', e);
+                const prev = btn.innerText;
+                btn.innerText = 'Failed';
+                setTimeout(() => { btn.innerText = prev; }, 1200);
+            }
+        });
+    })();
 
     const camL = new THREE.Group(); const camR = new THREE.Group();
     camL.add(new THREE.Mesh(new THREE.BoxGeometry(60,40,80), new THREE.MeshBasicMaterial({color: 0xff4d4d})));
@@ -99,6 +380,9 @@
         const focal = parseFloat(document.getElementById('focal').value);
         const sensorW = parseFloat(document.getElementById('sensor').value);
         const sensorH = parseFloat(document.getElementById('sensor-h').value);
+
+        viewState.h = h;
+        viewState.b = b;
         
         // Calculate FOV from focal length and sensor size
         const hfov = 2 * Math.atan(sensorW / (2 * focal));
