@@ -11,9 +11,20 @@
         label { display: block; font-size: 10px; font-weight: bold; color: #555; margin-bottom: 4px; }
         input { width: 100%; box-sizing: border-box; }
         input[type="range"] { margin-top: 6px; }
-        .stats { background: #eef7ff; padding: 15px; border-radius: 5px; border: 1px solid #b3d7ff; margin-top: 15px; }
-        .res-val { font-size: 18px; font-weight: bold; color: #007bff; }
-        .subval { font-size: 12px; color: #2b4a66; margin-top: 6px; }
+        .stats { background: #eef7ff; padding: 14px; border-radius: 8px; border: 1px solid #b3d7ff; margin-top: 15px; }
+        .stats-grid { display: grid; gap: 10px; }
+        .stats-section { background: rgba(255,255,255,0.55); border: 1px solid rgba(179,215,255,0.8); border-radius: 8px; padding: 10px; }
+        .stats-title { font-size: 11px; font-weight: 800; color: #0b3d66; letter-spacing: 0.2px; margin-bottom: 8px; text-transform: uppercase; }
+        .stat-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 4px 0; }
+        .stat-label { font-size: 12px; color: #2b4a66; }
+        .stat-value { font-size: 12px; color: #0b2b44; font-weight: 800; text-align: right; }
+        .stat-value.primary { font-size: 14px; }
+        .stat-unit { font-size: 11px; color: #2b4a66; margin-left: 6px; font-weight: 600; }
+        .stat-right { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; }
+        .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; border: 1px solid transparent; }
+        .pill.ok { background: rgba(45,164,78,0.14); color: #1a7f37; border-color: rgba(45,164,78,0.35); }
+        .pill.bad { background: rgba(207,34,46,0.12); color: #b42318; border-color: rgba(207,34,46,0.35); }
+        .pill.warn { background: rgba(210,153,34,0.14); color: #8a5a00; border-color: rgba(210,153,34,0.35); }
     </style>
 </head>
 <body>
@@ -57,6 +68,48 @@
     </div>
 
     <hr>
+    <h4 style="margin: 10px 0 8px 0;">Depth of Field</h4>
+
+    <div class="control-group">
+        <label>Aperture (f/#)</label>
+        <input type="number" id="fnum" value="8" min="0" max="64" step="0.1">
+        <input type="range" id="fnum-r" value="8" min="0" max="64" step="0.1">
+    </div>
+
+    <div class="control-group">
+        <label style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="coc-auto" checked style="width:auto;">
+            Auto CoC = sensor diagonal / 1500 (industrial)
+        </label>
+    </div>
+
+    <div class="control-group">
+        <label style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="coc-2px" style="width:auto;">
+            2-Pixel Rule CoC = 2 × pixel size (stricter)
+        </label>
+    </div>
+
+    <div class="control-group">
+        <label>Circle of Confusion (µm)</label>
+        <input type="number" id="coc-um" value="3.5" min="0.5" max="200" step="0.1">
+        <input type="range" id="coc-um-r" value="3.5" min="0.5" max="200" step="0.1">
+    </div>
+
+    <div class="control-group">
+        <label style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="focus-lock" checked style="width:auto;">
+            Lock focus distance to Working Distance
+        </label>
+    </div>
+
+    <div class="control-group">
+        <label>Focus Distance (mm)</label>
+        <input type="number" id="focus" value="1000" min="50" max="5000" step="1">
+        <input type="range" id="focus-r" value="1000" min="50" max="5000" step="1">
+    </div>
+
+    <hr>
     <h4 style="margin: 10px 0 8px 0;">3D Box in Field</h4>
     <div class="control-group">
         <label>Box Width X (mm)</label>
@@ -77,14 +130,84 @@
     </div>
 
     <div class="stats">
-        <div>Resolution (H): <span class="res-val" id="res-pxmm-h">0</span> mm/px</div>
-        <div class="subval">Resolution (V): <span style="font-weight:bold;" id="res-pxmm-v">0</span> mm/px</div>
-        <div class="subval">FOV @ WD: <span style="font-weight:bold;" id="fov-mm">0 × 0</span> mm</div>
-        <div class="subval">Angular FOV: <span style="font-weight:bold;" id="fov-deg">0° × 0°</span></div>
-        <div class="subval">Min Detectable (3px): <span id="min-feat" style="font-weight:bold;">0</span> mm</div>
-        <div class="subval">Box Res (bottom, H×V): <span id="box-res-bot" style="font-weight:bold;">0 × 0</span> mm/px</div>
-        <div class="subval">Box Res (top, H×V): <span id="box-res-top" style="font-weight:bold;">0 × 0</span> mm/px</div>
-        <div class="subval">Box Fit (corners in FOV): <span id="box-fit" style="font-weight:bold;">0/8</span></div>
+        <div class="stats-grid">
+            <div class="stats-section">
+                <div class="stats-title">Field of View</div>
+                <div class="stat-row">
+                    <div class="stat-label">FOV @ WD</div>
+                    <div class="stat-right"><span class="stat-value primary" id="fov-mm">0 × 0</span><span class="stat-unit">mm</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Angular FOV</div>
+                    <div class="stat-right"><span class="stat-value" id="fov-deg">0° × 0°</span></div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Resolution</div>
+                <div class="stat-row">
+                    <div class="stat-label">Resolution (H)</div>
+                    <div class="stat-right"><span class="stat-value primary" id="res-pxmm-h">0</span><span class="stat-unit">mm/px</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Resolution (V)</div>
+                    <div class="stat-right"><span class="stat-value" id="res-pxmm-v">0</span><span class="stat-unit">mm/px</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Min Detectable (3px)</div>
+                    <div class="stat-right"><span class="stat-value" id="min-feat">0</span><span class="stat-unit">mm</span></div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Depth of Field</div>
+                <div class="stat-row">
+                    <div class="stat-label">DOF (near → far)</div>
+                    <div class="stat-right">
+                        <span class="stat-value" id="dof-near">0</span>
+                        <span class="stat-value" style="opacity:0.7;">→</span>
+                        <span class="stat-value" id="dof-far">0</span>
+                        <span class="stat-unit">mm</span>
+                    </div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Working Range (DOF)</div>
+                    <div class="stat-right"><span class="stat-value" id="dof-range">0</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Hyperfocal</div>
+                    <div class="stat-right"><span class="stat-value" id="hyperfocal">0</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">CoC Used</div>
+                    <div class="stat-right"><span class="stat-value" id="coc-used">0</span></div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Box</div>
+                <div class="stat-row">
+                    <div class="stat-label">Box Fit (corners in FOV)</div>
+                    <div class="stat-right"><span class="stat-value" id="box-fit">0/8</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Box Res (bottom H×V)</div>
+                    <div class="stat-right"><span class="stat-value" id="box-res-bot">0 × 0</span><span class="stat-unit">mm/px</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Box Res (top H×V)</div>
+                    <div class="stat-right"><span class="stat-value" id="box-res-top">0 × 0</span><span class="stat-unit">mm/px</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Box Distance Span</div>
+                    <div class="stat-right"><span class="stat-value" id="box-dist-span">0</span></div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-label">Box In Focus</div>
+                    <div class="stat-right"><span class="pill warn" id="box-focus">n/a</span></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 <div id="viz-container"></div>
@@ -143,6 +266,40 @@
     fovOutlineTop.rotation.x = -Math.PI / 2;
     scene.add(fovOutlineTop);
 
+    // Focus plane (at focus distance)
+    const focusPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1, 1),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.10, side: THREE.DoubleSide })
+    );
+    focusPlane.rotation.x = -Math.PI / 2;
+    scene.add(focusPlane);
+
+    const focusOutline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)),
+        new THREE.LineBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.85, linewidth: 1 })
+    );
+    focusOutline.rotation.x = -Math.PI / 2;
+    scene.add(focusOutline);
+
+    // Depth-of-field visualization volume (frustum segment between near/far planes)
+    const dofVolume = new THREE.Mesh(
+        new THREE.BufferGeometry(),
+        new THREE.MeshBasicMaterial({
+            color: 0x2da44e,
+            transparent: true,
+            opacity: 0.10,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+        })
+    );
+    scene.add(dofVolume);
+
+    const dofOutline = new THREE.LineSegments(
+        new THREE.BufferGeometry(),
+        new THREE.LineBasicMaterial({ color: 0x2da44e, transparent: true, opacity: 0.65 })
+    );
+    scene.add(dofOutline);
+
     const boxMaterial = new THREE.MeshLambertMaterial({ color: 0xd29922, transparent: true, opacity: 0.55 });
     const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), boxMaterial);
     scene.add(boxMesh);
@@ -158,6 +315,9 @@
         sh: 5.3,
         pxh: 2048,
         pxv: 1536,
+        fnum: 8,
+        cocUmManual: 3.5,
+        focus: 1000,
         boxW: 200,
         boxD: 200,
         boxH: 200,
@@ -174,6 +334,19 @@
     function setText(id, text) {
         const el = document.getElementById(id);
         if (el) el.innerText = text;
+    }
+
+    function setPill(id, text, state) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerText = text;
+        el.classList.remove('ok', 'bad', 'warn');
+        if (state) el.classList.add(state);
+    }
+
+    function setValue(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.value = String(value);
     }
 
     function bindNumberAndRange(id) {
@@ -202,17 +375,43 @@
         const sh = readFinite('sh', 'sh');
         const pxh = readFinite('px-h', 'pxh');
         const pxv = readFinite('px-v', 'pxv');
+        const fnum = readFinite('fnum', 'fnum');
         const boxW = readFinite('box-w', 'boxW');
         const boxD = readFinite('box-d', 'boxD');
         const boxH = readFinite('box-h', 'boxH');
         const boxX = 0;
         const boxZ = 0;
 
+        const focusLockEl = document.getElementById('focus-lock');
+        const focusLocked = focusLockEl ? !!focusLockEl.checked : true;
+        const focus = focusLocked ? wd : readFinite('focus', 'focus');
+        if (focusLocked) {
+            // Keep the focus inputs visually in sync with WD
+            setValue('focus', wd);
+            setValue('focus-r', wd);
+        }
+
         // Guard against transient invalid input states (e.g. typing, empty input)
-        if (![wd, f, sw, sh, pxh, pxv, boxW, boxD, boxH].every(Number.isFinite)) {
+        if (![wd, f, sw, sh, pxh, pxv, fnum, focus, boxW, boxD, boxH].every(Number.isFinite)) {
             return;
         }
-        if (wd <= 0 || f <= 0 || sw <= 0 || sh <= 0 || pxh <= 0 || pxv <= 0 || boxW <= 0 || boxD <= 0 || boxH < 0) {
+
+        const cocAutoEl = document.getElementById('coc-auto');
+        const coc2pxEl = document.getElementById('coc-2px');
+        const cocAuto = cocAutoEl ? !!cocAutoEl.checked : true;
+        const coc2px = coc2pxEl ? !!coc2pxEl.checked : false;
+        const cocManual = !(cocAuto || coc2px);
+
+        const cocUmManual = cocManual ? readFinite('coc-um', 'cocUmManual') : lastGood.cocUmManual;
+
+        if (![cocUmManual].every(Number.isFinite)) {
+            return;
+        }
+
+        if (wd <= 0 || f <= 0 || sw <= 0 || sh <= 0 || pxh <= 0 || pxv <= 0 || fnum <= 0 || focus <= 0 || boxW <= 0 || boxD <= 0 || boxH < 0) {
+            return;
+        }
+        if (cocManual && cocUmManual <= 0) {
             return;
         }
 
@@ -228,6 +427,24 @@
         const angFovH = 2 * Math.atan(sw / (2 * f));
         const angFovV = 2 * Math.atan(sh / (2 * f));
 
+        // Depth of Field (industrial CoC options; distances in mm)
+        // - Auto (industrial): CoC = sensor diagonal / 1500 (mm)
+        // - 2-pixel rule: CoC = 2 × pixel pitch (mm)
+        // - Manual: user-specified CoC (µm)
+        const pixelPitchMm = ((sw / pxh) + (sh / pxv)) / 2.0;
+        const cocMm = cocAuto
+            ? (Math.sqrt(sw * sw + sh * sh) / 1500.0)
+            : (coc2px ? (2.0 * pixelPitchMm) : (cocUmManual / 1000.0));
+
+        const H = (f * f) / (fnum * cocMm) + f; // hyperfocal
+        const s = focus; // focus distance
+
+        // Near/Far limits per provided python implementation
+        const nearDen = (H + s - (2 * f));
+        const nearDOF = nearDen !== 0 ? (s * (H - f)) / nearDen : NaN;
+        const farDOF = (s >= H) ? Infinity : ((H - s) !== 0 ? (s * (H - f)) / (H - s) : Infinity);
+        const dofRange = Number.isFinite(farDOF) ? (farDOF - nearDOF) : Infinity;
+
         // Visual Frustum
         const pts = [new THREE.Vector3(-fovW/2, 0, -fovH/2), new THREE.Vector3(fovW/2, 0, -fovH/2), new THREE.Vector3(fovW/2, 0, fovH/2), new THREE.Vector3(-fovW/2, 0, fovH/2)];
         frustum.geometry.setFromPoints([new THREE.Vector3(0,wd,0), pts[0], pts[1], new THREE.Vector3(0,wd,0), pts[1], pts[2], new THREE.Vector3(0,wd,0), pts[2], pts[3], new THREE.Vector3(0,wd,0), pts[3], pts[0]]);
@@ -239,6 +456,21 @@
         fovOutline.scale.set(fovW, fovH, 1);
         fovPlane.position.set(0, 0, 0);
         fovOutline.position.set(0, 0, 0);
+
+        // Focus plane (at focus distance s): in this scene, distance from camera to plane at height y is d = wd - y
+        // so yFocus = wd - s. Plane size is physical FOV at distance s.
+        const focusValid = focus > 0;
+        focusPlane.visible = focusValid;
+        focusOutline.visible = focusValid;
+        if (focusValid) {
+            const yFocus = wd - focus;
+            const fovWFocus = (sw * focus) / f;
+            const fovHFocus = (sh * focus) / f;
+            focusPlane.scale.set(fovWFocus, fovHFocus, 1);
+            focusOutline.scale.set(fovWFocus, fovHFocus, 1);
+            focusPlane.position.set(0, yFocus, 0);
+            focusOutline.position.set(0, yFocus, 0);
+        }
 
         // Box + top-plane FOV (at the box top height)
         const boxTopY = Math.max(0, boxH);
@@ -265,6 +497,113 @@
         setText('fov-mm', `${fovW.toFixed(1)} × ${fovH.toFixed(1)}`);
         setText('fov-deg', `${THREE.MathUtils.radToDeg(angFovH).toFixed(1)}° × ${THREE.MathUtils.radToDeg(angFovV).toFixed(1)}°`);
         setText('min-feat', `${Math.max(3 * mmppH, 3 * mmppV).toFixed(3)} (worst axis)`);
+
+        setText('dof-near', Number.isFinite(nearDOF) ? nearDOF.toFixed(1) : 'n/a');
+        setText('dof-far', Number.isFinite(farDOF) ? farDOF.toFixed(1) : '∞');
+        setText('dof-range', Number.isFinite(dofRange) ? `${dofRange.toFixed(1)} mm` : '∞');
+        setText('hyperfocal', `${H.toFixed(1)} mm`);
+        const cocModeLabel = cocAuto ? 'auto (diag/1500)' : (coc2px ? `2px (pitch ${(pixelPitchMm * 1000).toFixed(2)} µm)` : 'manual');
+        setText('coc-used', `${cocMm.toFixed(4)} mm (${(cocMm * 1000).toFixed(2)} µm) — ${cocModeLabel}`);
+
+        // Show the CoC currently being used in the CoC input field when an auto option is active.
+        // Preserve last manual value so switching back to manual restores it.
+        if (cocAuto || coc2px) {
+            const cocUmUsed = cocMm * 1000.0;
+            setValue('coc-um', cocUmUsed.toFixed(2));
+            setValue('coc-um-r', cocUmUsed.toFixed(2));
+        } else {
+            setValue('coc-um', cocUmManual);
+            setValue('coc-um-r', cocUmManual);
+        }
+
+        // DOF visualization (as a frustum segment). In this scene, distance from camera to a plane at height y is d = wd - y.
+        // So a DOF distance d maps to y = wd - d.
+        const nearDist = nearDOF;
+        const farDistViz = Number.isFinite(farDOF) ? farDOF : wd; // cap "infinity" at the ground plane for visualization
+
+        const dofVizValid = Number.isFinite(nearDist) && nearDist > 0 && farDistViz > nearDist;
+        dofVolume.visible = dofVizValid;
+        dofOutline.visible = dofVizValid;
+
+        if (dofVizValid) {
+            const yNear = wd - nearDist;
+            const yFar = wd - farDistViz;
+
+            const wNear = (sw * nearDist) / f;
+            const hNear = (sh * nearDist) / f;
+            const wFar = (sw * farDistViz) / f;
+            const hFar = (sh * farDistViz) / f;
+
+            const n0 = new THREE.Vector3(-wNear / 2, yNear, -hNear / 2);
+            const n1 = new THREE.Vector3( wNear / 2, yNear, -hNear / 2);
+            const n2 = new THREE.Vector3( wNear / 2, yNear,  hNear / 2);
+            const n3 = new THREE.Vector3(-wNear / 2, yNear,  hNear / 2);
+
+            const f0 = new THREE.Vector3(-wFar / 2, yFar, -hFar / 2);
+            const f1 = new THREE.Vector3( wFar / 2, yFar, -hFar / 2);
+            const f2 = new THREE.Vector3( wFar / 2, yFar,  hFar / 2);
+            const f3 = new THREE.Vector3(-wFar / 2, yFar,  hFar / 2);
+
+            // Build triangles for a frustum segment: near face, far face, and 4 side faces
+            const verts = [
+                // near face (n0,n1,n2) (n0,n2,n3)
+                n0, n1, n2,  n0, n2, n3,
+                // far face (f2,f1,f0) (f3,f2,f0) (reverse winding)
+                f2, f1, f0,  f3, f2, f0,
+                // sides
+                // n0-n1-f1-f0
+                n0, n1, f1,  n0, f1, f0,
+                // n1-n2-f2-f1
+                n1, n2, f2,  n1, f2, f1,
+                // n2-n3-f3-f2
+                n2, n3, f3,  n2, f3, f2,
+                // n3-n0-f0-f3
+                n3, n0, f0,  n3, f0, f3,
+            ];
+
+            const pos = new Float32Array(verts.length * 3);
+            for (let i = 0; i < verts.length; i++) {
+                pos[i * 3 + 0] = verts[i].x;
+                pos[i * 3 + 1] = verts[i].y;
+                pos[i * 3 + 2] = verts[i].z;
+            }
+
+            dofVolume.geometry.dispose();
+            dofVolume.geometry = new THREE.BufferGeometry();
+            dofVolume.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            dofVolume.geometry.computeVertexNormals();
+
+            // Outline edges (near rect + far rect + 4 connectors)
+            const edgePts = [
+                n0, n1,  n1, n2,  n2, n3,  n3, n0,
+                f0, f1,  f1, f2,  f2, f3,  f3, f0,
+                n0, f0,  n1, f1,  n2, f2,  n3, f3,
+            ];
+            const edgePos = new Float32Array(edgePts.length * 3);
+            for (let i = 0; i < edgePts.length; i++) {
+                edgePos[i * 3 + 0] = edgePts[i].x;
+                edgePos[i * 3 + 1] = edgePts[i].y;
+                edgePos[i * 3 + 2] = edgePts[i].z;
+            }
+            dofOutline.geometry.dispose();
+            dofOutline.geometry = new THREE.BufferGeometry();
+            dofOutline.geometry.setAttribute('position', new THREE.BufferAttribute(edgePos, 3));
+        }
+
+        // Box focus check: top is closest point (wd - boxTopY), bottom is farthest point (wd - 0)
+        const boxNearDist = dTop; // mm from camera to box top plane
+        const boxFarDist = wd;    // mm from camera to box bottom plane
+        const boxSpanText = topValid
+            ? `${boxNearDist.toFixed(1)} → ${boxFarDist.toFixed(1)} mm`
+            : `n/a (top ≥ camera)`;
+        setText('box-dist-span', boxSpanText);
+
+        const inFocus = topValid &&
+            Number.isFinite(nearDOF) &&
+            boxNearDist >= nearDOF &&
+            (Number.isFinite(farDOF) ? (boxFarDist <= farDOF) : true);
+        if (!topValid) setPill('box-focus', 'n/a', 'warn');
+        else setPill('box-focus', inFocus ? 'YES' : 'NO', inFocus ? 'ok' : 'bad');
 
         // Effective resolution at bottom vs top of box (perspective)
         const mmppHBot = (sw * wd) / (pxh * f);
@@ -315,8 +654,54 @@
     // Pair up all number inputs with their sliders
     [
         'wd','focal','sw','sh','px-h','px-v',
+        'fnum','coc-um','focus',
         'box-w','box-d','box-h'
     ].forEach(bindNumberAndRange);
+
+    (function bindFocusLock() {
+        const lock = document.getElementById('focus-lock');
+        const focusNum = document.getElementById('focus');
+        const focusRange = document.getElementById('focus-r');
+        if (!lock || !focusNum || !focusRange) return;
+
+        function applyLockUI() {
+            const disabled = !!lock.checked;
+            focusNum.disabled = disabled;
+            focusRange.disabled = disabled;
+        }
+
+        lock.addEventListener('change', () => {
+            applyLockUI();
+            update();
+        });
+        applyLockUI();
+    })();
+
+    (function bindCocAuto() {
+        const lock = document.getElementById('coc-auto');
+        const coc2px = document.getElementById('coc-2px');
+        const cocNum = document.getElementById('coc-um');
+        const cocRange = document.getElementById('coc-um-r');
+        if (!lock || !coc2px || !cocNum || !cocRange) return;
+
+        function applyLockUI() {
+            const disabled = !!lock.checked || !!coc2px.checked;
+            cocNum.disabled = disabled;
+            cocRange.disabled = disabled;
+        }
+
+        lock.addEventListener('change', () => {
+            if (lock.checked) coc2px.checked = false;
+            applyLockUI();
+            update();
+        });
+        coc2px.addEventListener('change', () => {
+            if (coc2px.checked) lock.checked = false;
+            applyLockUI();
+            update();
+        });
+        applyLockUI();
+    })();
 
     update();
     (function anim(){ requestAnimationFrame(anim); renderer.render(scene, camera); })();
