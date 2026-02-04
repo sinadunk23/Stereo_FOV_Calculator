@@ -95,14 +95,3 @@ Then open:
 - **Copy Results**
 - **Screenshot** (copies PNG to clipboard; falls back to download if required)
 
----
-
-### Notes / Troubleshooting
-
-- **Clipboard screenshot requires a secure context**:
-  - Works on `https://` and usually on `http://localhost`
-  - Often does **not** work on `file://` (browser will block clipboard image writes)
-  - When blocked, the Screenshot button falls back to downloading a PNG.
-- **“Copy Results”** should work broadly; it has a fallback for non-secure contexts.
-- The tools load `three.js` from a CDN; offline use requires vendoring those dependencies.
-
